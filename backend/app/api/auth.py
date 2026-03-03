@@ -54,11 +54,11 @@ def register(req: RegisterRequest, _: dict = Depends(require_super)):
                 detail="Email already registered",
             )
 
-        # Validate role
-        if req.role not in ("auditor", "admin", "super"):
+        # Validate role — super can never be assigned via API
+        if req.role not in ("auditor", "admin"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Role must be 'auditor', 'admin', or 'super'",
+                detail="Role must be 'auditor' or 'admin'",
             )
 
         hashed = hash_password(req.password)

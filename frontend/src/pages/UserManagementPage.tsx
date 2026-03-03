@@ -195,18 +195,36 @@ function AddUserForm({
   const [role, setRole] = useState('auditor');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const validate = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!fullName.trim()) errors.fullName = 'Full name is required';
+    else if (fullName.trim().length < 2) errors.fullName = 'Name must be at least 2 characters';
+    if (!email.trim()) errors.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Invalid email format';
+    if (phone && !/^[+]?[\d\s-]{7,15}$/.test(phone)) errors.phone = 'Invalid phone number';
+    if (!password) errors.password = 'Password is required';
+    else if (password.length < 8) errors.password = 'Password must be at least 8 characters';
+    else if (!/[A-Z]/.test(password)) errors.password = 'Password must contain an uppercase letter';
+    else if (!/[0-9]/.test(password)) errors.password = 'Password must contain a number';
+    else if (!/[!@#$%^&*]/.test(password)) errors.password = 'Password must contain a special character (!@#$%^&*)';
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!validate()) return;
     setSubmitting(true);
     try {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          full_name: fullName,
-          email,
-          phone: phone || null,
+          full_name: fullName.trim(),
+          email: email.trim(),
+          phone: phone.trim() || null,
           role,
           password,
         }),
@@ -227,35 +245,38 @@ function AddUserForm({
   return (
     <div className="add-user-form">
       <h3>Add New User</h3>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <div className="form-row">
           <div className="form-group">
             <label>Full Name *</label>
-            <input value={fullName} onChange={e => setFullName(e.target.value)} required placeholder="John Doe" />
+            <input value={fullName} onChange={e => { setFullName(e.target.value); setFormErrors(p => ({...p, fullName: ''})); }} placeholder="John Doe" className={formErrors.fullName ? 'input-error' : ''} />
+            {formErrors.fullName && <span className="field-error">{formErrors.fullName}</span>}
           </div>
           <div className="form-group">
             <label>Email *</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="john@example.com" />
+            <input type="email" value={email} onChange={e => { setEmail(e.target.value); setFormErrors(p => ({...p, email: ''})); }} placeholder="john@example.com" className={formErrors.email ? 'input-error' : ''} />
+            {formErrors.email && <span className="field-error">{formErrors.email}</span>}
           </div>
         </div>
         <div className="form-row">
           <div className="form-group">
             <label>Phone</label>
-            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 1234567890" />
+            <input value={phone} onChange={e => { setPhone(e.target.value); setFormErrors(p => ({...p, phone: ''})); }} placeholder="+91 1234567890" className={formErrors.phone ? 'input-error' : ''} />
+            {formErrors.phone && <span className="field-error">{formErrors.phone}</span>}
           </div>
           <div className="form-group">
             <label>Role *</label>
             <select value={role} onChange={e => setRole(e.target.value)}>
               <option value="auditor">Auditor</option>
               <option value="admin">Admin</option>
-              <option value="super">Super</option>
             </select>
           </div>
         </div>
         <div className="form-row">
           <div className="form-group">
             <label>Password *</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} placeholder="Min 8 characters" />
+            <input type="password" value={password} onChange={e => { setPassword(e.target.value); setFormErrors(p => ({...p, password: ''})); }} placeholder="Min 8 chars, uppercase, number, special" className={formErrors.password ? 'input-error' : ''} />
+            {formErrors.password && <span className="field-error">{formErrors.password}</span>}
           </div>
           <div className="form-group form-actions-inline">
             <button type="submit" className="btn-primary" disabled={submitting}>
@@ -289,6 +310,18 @@ function PasswordModal({
     e.preventDefault();
     if (password.length < 8) {
       setError('Password must be at least 8 characters');
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setError('Password must contain an uppercase letter');
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError('Password must contain a number');
+      return;
+    }
+    if (!/[!@#$%^&*]/.test(password)) {
+      setError('Password must contain a special character (!@#$%^&*)');
       return;
     }
     if (password !== confirm) {
