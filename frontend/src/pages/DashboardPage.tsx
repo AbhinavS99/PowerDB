@@ -9,14 +9,20 @@ interface DashboardPageProps {
     role: string;
   };
   onLogout: () => void;
+  onManageUsers?: () => void;
 }
 
-export default function DashboardPage({ user, onLogout }: DashboardPageProps) {
+export default function DashboardPage({ user, onLogout, onManageUsers }: DashboardPageProps) {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
         <h1>PowerDB</h1>
         <div className="header-actions">
+          {onManageUsers && (
+            <button className="btn-primary" onClick={onManageUsers}>
+              Manage Users
+            </button>
+          )}
           <span className="user-info">{user.full_name} ({user.role})</span>
           <button className="btn-secondary" onClick={onLogout}>
             Sign Out

@@ -20,6 +20,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class PasswordUpdateRequest(BaseModel):
+    new_password: str
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -122,6 +126,29 @@ def list_users(_: dict = Depends(require_super)):
             }
             for r in rows
         ]
+    finally:
+        conn.close()
+
+
+@router.put("/users/{user_id}/password", status_code=status.HTTP_200_OK)
+def update_password(user_id: int, req: PasswordUpdateRequest, current_user: dict = Depends(require_super)):
+    """Update a user's password. Only super users can do this."""
+    if len(req.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters",
+        )
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM users WHERE id = ?", user_id)
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+
+        hashed = hash_password(req.new_password)
+        cursor.execute("UPDATE users SET hashed_password = ?, updated_at = GETUTCDATE() WHERE id = ?", hashed, user_id)
+        conn.commit()
+        return {"message": "Password updated successfully"}
     finally:
         conn.close()
 

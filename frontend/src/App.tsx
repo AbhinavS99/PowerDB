@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
+import UserManagementPage from './pages/UserManagementPage'
 import './index.css'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
@@ -10,6 +11,7 @@ export { API_URL }
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
   const [user, setUser] = useState<any>(null)
+  const [page, setPage] = useState<'dashboard' | 'users'>('dashboard')
 
   useEffect(() => {
     if (token) {
@@ -34,19 +36,31 @@ function App() {
     localStorage.setItem('token', accessToken)
     setToken(accessToken)
     setUser(userData)
+    setPage('dashboard')
   }
 
   const handleLogout = () => {
     localStorage.removeItem('token')
     setToken(null)
     setUser(null)
+    setPage('dashboard')
   }
 
   if (!token || !user) {
     return <LoginPage onLogin={handleLogin} />
   }
 
-  return <DashboardPage user={user} onLogout={handleLogout} />
+  if (page === 'users' && user.role === 'super') {
+    return <UserManagementPage onBack={() => setPage('dashboard')} />
+  }
+
+  return (
+    <DashboardPage
+      user={user}
+      onLogout={handleLogout}
+      onManageUsers={user.role === 'super' ? () => setPage('users') : undefined}
+    />
+  )
 }
 
 export default App
