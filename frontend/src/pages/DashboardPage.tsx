@@ -159,7 +159,7 @@ export default function DashboardPage({ user, onLogout, onManageUsers, onOpenRep
                   </div>
                   {(user.role === 'super' || user.role === 'admin') && (
                     <div className="card-actions">
-                      <button className="btn-card-delete" onClick={() => handleDelete(r.id)}>Delete</button>
+                      <button className="btn-card-delete" onClick={(e) => { e.stopPropagation(); handleDelete(r.id); }}>Delete</button>
                     </div>
                   )}
                 </div>

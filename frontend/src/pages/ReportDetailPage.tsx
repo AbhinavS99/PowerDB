@@ -21,6 +21,21 @@ interface Connection {
   sanctioned_cd_kva: number | null;
   is_diesel_generator: boolean;
   is_solar: boolean;
+  billing_period_from: string | null;
+  billing_period_to: string | null;
+  billing_days: number | null;
+  bill_no: string | null;
+  mdi_kva: number | null;
+  units_kwh: number | null;
+  units_kvah: number | null;
+  pf: number | null;
+  fixed_charges: number | null;
+  energy_charges: number | null;
+  taxes_and_rent: number | null;
+  other_charges: number | null;
+  monthly_bill: number | null;
+  unit_consumption_per_day: number | null;
+  avg_per_unit_cost: number | null;
 }
 
 interface ReportDetailPageProps {
@@ -111,6 +126,16 @@ export default function ReportDetailPage({ reportId, user: _user, onBack }: Repo
           sanctioned_cd_kva: conn.sanctioned_cd_kva,
           is_diesel_generator: conn.is_diesel_generator,
           is_solar: conn.is_solar,
+          billing_period_from: conn.billing_period_from || null,
+          billing_period_to: conn.billing_period_to || null,
+          bill_no: conn.bill_no || null,
+          mdi_kva: conn.mdi_kva,
+          units_kwh: conn.units_kwh,
+          units_kvah: conn.units_kvah,
+          fixed_charges: conn.fixed_charges,
+          energy_charges: conn.energy_charges,
+          taxes_and_rent: conn.taxes_and_rent,
+          other_charges: conn.other_charges,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).detail);
@@ -138,11 +163,52 @@ export default function ReportDetailPage({ reportId, user: _user, onBack }: Repo
     }
   };
 
-  // ---- Update local state ----
+  // ---- Update local state with auto-calculated fields ----
   const updateConn = (index: number, field: keyof Connection, value: any) => {
     setConnections(prev => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      const c = { ...updated[index], [field]: value };
+
+      // Calculate billing_days from period
+      if (c.billing_period_from && c.billing_period_to) {
+        const from = new Date(c.billing_period_from);
+        const to = new Date(c.billing_period_to);
+        const diff = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+        c.billing_days = diff > 0 ? diff : 0;
+      } else {
+        c.billing_days = null;
+      }
+
+      // PF = kWH / kVAH
+      if (c.units_kwh && c.units_kvah && c.units_kvah > 0) {
+        c.pf = Math.round((c.units_kwh / c.units_kvah) * 10000) / 10000;
+      } else {
+        c.pf = null;
+      }
+
+      // Monthly bill = fixed + energy + taxes + other
+      const charges = [c.fixed_charges, c.energy_charges, c.taxes_and_rent, c.other_charges];
+      if (charges.some(v => v !== null && v !== undefined)) {
+        c.monthly_bill = charges.reduce((s: number, v) => s + (v || 0), 0);
+      } else {
+        c.monthly_bill = null;
+      }
+
+      // Unit consumption per day = kVAH / billing_days
+      if (c.units_kvah && c.billing_days && c.billing_days > 0) {
+        c.unit_consumption_per_day = Math.round((c.units_kvah / c.billing_days) * 10000) / 10000;
+      } else {
+        c.unit_consumption_per_day = null;
+      }
+
+      // Avg per unit cost = monthly_bill / kVAH
+      if (c.monthly_bill && c.units_kvah && c.units_kvah > 0) {
+        c.avg_per_unit_cost = Math.round((c.monthly_bill / c.units_kvah) * 10000) / 10000;
+      } else {
+        c.avg_per_unit_cost = null;
+      }
+
+      updated[index] = c;
       return updated;
     });
   };
@@ -228,6 +294,7 @@ export default function ReportDetailPage({ reportId, user: _user, onBack }: Repo
                     </div>
                   </div>
 
+                  {/* Row 1: Account info */}
                   <div className="conn-fields">
                     <div className="form-group">
                       <label>Utility Billing Account No.</label>
@@ -241,14 +308,136 @@ export default function ReportDetailPage({ reportId, user: _user, onBack }: Repo
                     <div className="form-group">
                       <label>Sanctioned Contract Demand (kVA)</label>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
+                        type="number" step="0.01" min="0"
                         value={conn.sanctioned_cd_kva ?? ''}
                         onChange={e => updateConn(idx, 'sanctioned_cd_kva', e.target.value ? parseFloat(e.target.value) : null)}
                         placeholder="e.g. 500"
                       />
                     </div>
+                    <div className="form-group">
+                      <label>Bill No.</label>
+                      <input
+                        type="text"
+                        value={conn.bill_no || ''}
+                        onChange={e => updateConn(idx, 'bill_no', e.target.value || null)}
+                        placeholder="e.g. INV-2026-001"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 2: Billing period */}
+                  <div className="conn-fields" style={{ marginTop: '0.75rem' }}>
+                    <div className="form-group">
+                      <label>Billing Period From</label>
+                      <input
+                        type="date"
+                        value={conn.billing_period_from || ''}
+                        onChange={e => updateConn(idx, 'billing_period_from', e.target.value || null)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Billing Period To</label>
+                      <input
+                        type="date"
+                        value={conn.billing_period_to || ''}
+                        onChange={e => updateConn(idx, 'billing_period_to', e.target.value || null)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Billing Days</label>
+                      <input type="number" value={conn.billing_days ?? ''} readOnly className="input-readonly" />
+                    </div>
+                  </div>
+
+                  {/* Row 3: Consumption */}
+                  <div className="conn-fields" style={{ marginTop: '0.75rem' }}>
+                    <div className="form-group">
+                      <label>Max Demand Indicator — MDI (kVA)</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={conn.mdi_kva ?? ''}
+                        onChange={e => updateConn(idx, 'mdi_kva', e.target.value ? parseFloat(e.target.value) : null)}
+                        placeholder="kVA"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Units Consumption (kWH)</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={conn.units_kwh ?? ''}
+                        onChange={e => updateConn(idx, 'units_kwh', e.target.value ? parseFloat(e.target.value) : null)}
+                        placeholder="kWH"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Units Consumption (kVAH)</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={conn.units_kvah ?? ''}
+                        onChange={e => updateConn(idx, 'units_kvah', e.target.value ? parseFloat(e.target.value) : null)}
+                        placeholder="kVAH"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Power Factor (PF)</label>
+                      <input type="text" value={conn.pf !== null ? conn.pf.toFixed(4) : ''} readOnly className="input-readonly" />
+                    </div>
+                  </div>
+
+                  {/* Row 4: Charges */}
+                  <div className="conn-fields" style={{ marginTop: '0.75rem' }}>
+                    <div className="form-group">
+                      <label>Fixed Charges (₹)</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={conn.fixed_charges ?? ''}
+                        onChange={e => updateConn(idx, 'fixed_charges', e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Energy Charges (₹)</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={conn.energy_charges ?? ''}
+                        onChange={e => updateConn(idx, 'energy_charges', e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Taxes & Rent (₹)</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={conn.taxes_and_rent ?? ''}
+                        onChange={e => updateConn(idx, 'taxes_and_rent', e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Other Charges / Surcharge / Arrears / Rebates (₹)</label>
+                      <input
+                        type="number" step="0.01"
+                        value={conn.other_charges ?? ''}
+                        onChange={e => updateConn(idx, 'other_charges', e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 5: Calculated totals */}
+                  <div className="conn-fields calculated-row" style={{ marginTop: '0.75rem' }}>
+                    <div className="form-group">
+                      <label>Monthly Electricity Bill (₹)</label>
+                      <input type="text" value={conn.monthly_bill !== null ? conn.monthly_bill.toFixed(2) : ''} readOnly className="input-readonly" />
+                    </div>
+                    <div className="form-group">
+                      <label>Unit Consumption/Day (kVAH)</label>
+                      <input type="text" value={conn.unit_consumption_per_day !== null ? conn.unit_consumption_per_day.toFixed(4) : ''} readOnly className="input-readonly" />
+                    </div>
+                    <div className="form-group">
+                      <label>Avg. Per Unit Cost (₹/kVAH)</label>
+                      <input type="text" value={conn.avg_per_unit_cost !== null ? conn.avg_per_unit_cost.toFixed(4) : ''} readOnly className="input-readonly" />
+                    </div>
+                  </div>
+
+                  {/* Row 6: Flags */}
+                  <div className="conn-fields" style={{ marginTop: '0.75rem' }}>
                     <div className="form-group">
                       <label>Diesel Generator?</label>
                       <select

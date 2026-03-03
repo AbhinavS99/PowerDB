@@ -20,6 +20,16 @@ class AccountUpdate(BaseModel):
     sanctioned_cd_kva: float | None = None
     is_diesel_generator: bool = False
     is_solar: bool = False
+    billing_period_from: str | None = None
+    billing_period_to: str | None = None
+    bill_no: str | None = None
+    mdi_kva: float | None = None
+    units_kwh: float | None = None
+    units_kvah: float | None = None
+    fixed_charges: float | None = None
+    energy_charges: float | None = None
+    taxes_and_rent: float | None = None
+    other_charges: float | None = None
 
 
 # ---------- helpers ----------
@@ -83,13 +93,21 @@ def get_sheet1(report_id: int, current_user: dict = Depends(get_current_user)):
         cursor.execute(
             """
             SELECT id, account_number, entry_date, is_solar, is_diesel_generator,
-                   billing_account_no, sanctioned_cd_kva
+                   billing_account_no, sanctioned_cd_kva,
+                   billing_period_from, billing_period_to, billing_days,
+                   bill_no, mdi_kva, units_kwh, units_kvah, pf,
+                   fixed_charges, energy_charges, taxes_and_rent, other_charges,
+                   monthly_bill, unit_consumption_per_day, avg_per_unit_cost
             FROM sheet1_accounts
             WHERE sheet1_id = ?
             ORDER BY account_number
             """,
             sheet.id,
         )
+
+        def _float(v):
+            return float(v) if v is not None else None
+
         accounts = [
             {
                 "id": a.id,
@@ -98,7 +116,22 @@ def get_sheet1(report_id: int, current_user: dict = Depends(get_current_user)):
                 "is_solar": bool(a.is_solar),
                 "is_diesel_generator": bool(a.is_diesel_generator),
                 "billing_account_no": a.billing_account_no,
-                "sanctioned_cd_kva": float(a.sanctioned_cd_kva) if a.sanctioned_cd_kva is not None else None,
+                "sanctioned_cd_kva": _float(a.sanctioned_cd_kva),
+                "billing_period_from": str(a.billing_period_from) if a.billing_period_from else None,
+                "billing_period_to": str(a.billing_period_to) if a.billing_period_to else None,
+                "billing_days": a.billing_days,
+                "bill_no": a.bill_no,
+                "mdi_kva": _float(a.mdi_kva),
+                "units_kwh": _float(a.units_kwh),
+                "units_kvah": _float(a.units_kvah),
+                "pf": _float(a.pf),
+                "fixed_charges": _float(a.fixed_charges),
+                "energy_charges": _float(a.energy_charges),
+                "taxes_and_rent": _float(a.taxes_and_rent),
+                "other_charges": _float(a.other_charges),
+                "monthly_bill": _float(a.monthly_bill),
+                "unit_consumption_per_day": _float(a.unit_consumption_per_day),
+                "avg_per_unit_cost": _float(a.avg_per_unit_cost),
             }
             for a in cursor.fetchall()
         ]
@@ -138,6 +171,13 @@ def add_connection(report_id: int, req: AccountCreate, current_user: dict = Depe
         )
         row = cursor.fetchone()
         _sync_account_count(cursor, sheet1_id)
+
+        # Auto-mark report as in_progress if it's still not_started
+        cursor.execute(
+            "UPDATE reports SET status = 'in_progress', updated_at = GETUTCDATE() WHERE id = ? AND status = 'not_started'",
+            report_id,
+        )
+
         conn.commit()
 
         return {
@@ -176,16 +216,56 @@ def update_connection(
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Connection not found")
 
+        # Calculate derived fields
+        billing_days = None
+        if req.billing_period_from and req.billing_period_to:
+            try:
+                d_from = datetime.strptime(req.billing_period_from, "%Y-%m-%d")
+                d_to = datetime.strptime(req.billing_period_to, "%Y-%m-%d")
+                billing_days = (d_to - d_from).days
+                if billing_days < 0:
+                    billing_days = 0
+            except ValueError:
+                pass
+
+        pf = None
+        if req.units_kwh and req.units_kvah and req.units_kvah > 0:
+            pf = round(req.units_kwh / req.units_kvah, 4)
+
+        monthly_bill = None
+        charges = [req.fixed_charges, req.energy_charges, req.taxes_and_rent, req.other_charges]
+        if any(c is not None for c in charges):
+            monthly_bill = sum(c or 0 for c in charges)
+
+        unit_consumption_per_day = None
+        if req.units_kvah and billing_days and billing_days > 0:
+            unit_consumption_per_day = round(req.units_kvah / billing_days, 4)
+
+        avg_per_unit_cost = None
+        if req.units_kvah and req.units_kvah > 0 and monthly_bill:
+            avg_per_unit_cost = round(monthly_bill / req.units_kvah, 4)
+
         cursor.execute(
             """
             UPDATE sheet1_accounts
             SET billing_account_no = ?, sanctioned_cd_kva = ?,
-                is_diesel_generator = ?, is_solar = ?, updated_at = GETUTCDATE()
+                is_diesel_generator = ?, is_solar = ?,
+                billing_period_from = ?, billing_period_to = ?, billing_days = ?,
+                bill_no = ?, mdi_kva = ?,
+                units_kwh = ?, units_kvah = ?, pf = ?,
+                fixed_charges = ?, energy_charges = ?, taxes_and_rent = ?, other_charges = ?,
+                monthly_bill = ?, unit_consumption_per_day = ?, avg_per_unit_cost = ?,
+                updated_at = GETUTCDATE()
             WHERE id = ?
             """,
             req.billing_account_no, req.sanctioned_cd_kva,
             1 if req.is_diesel_generator else 0,
             1 if req.is_solar else 0,
+            req.billing_period_from, req.billing_period_to, billing_days,
+            req.bill_no, req.mdi_kva,
+            req.units_kwh, req.units_kvah, pf,
+            req.fixed_charges, req.energy_charges, req.taxes_and_rent, req.other_charges,
+            monthly_bill, unit_consumption_per_day, avg_per_unit_cost,
             connection_id,
         )
         conn.commit()

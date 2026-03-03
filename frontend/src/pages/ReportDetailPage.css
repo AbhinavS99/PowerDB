@@ -277,3 +277,21 @@
   border-color: #1677ff;
   box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
 }
+
+/* Read-only calculated fields */
+.input-readonly {
+  background: #fafafa !important;
+  color: #333 !important;
+  cursor: default;
+  font-weight: 600;
+}
+
+.input-readonly:focus {
+  border-color: #d9d9d9 !important;
+  box-shadow: none !important;
+}
+
+.calculated-row .form-group label {
+  color: #1677ff;
+  font-weight: 600;
+}
