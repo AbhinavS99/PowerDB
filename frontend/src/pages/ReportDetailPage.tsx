@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../App';
 import type { UserInfo } from '../App';
 import './ReportDetailPage.css';
@@ -13,13 +13,14 @@ interface Report {
   created_at: string;
 }
 
-interface AccountEntry {
-  id?: number;
+interface Connection {
+  id: number;
   account_number: number;
   entry_date: string | null;
-  is_solar: boolean;
   billing_account_no: string | null;
   sanctioned_cd_kva: number | null;
+  is_diesel_generator: boolean;
+  is_solar: boolean;
 }
 
 interface ReportDetailPageProps {
@@ -31,13 +32,10 @@ interface ReportDetailPageProps {
 export default function ReportDetailPage({ reportId, user: _user, onBack }: ReportDetailPageProps) {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Sheet 1 state
-  const [sheet1Exists, setSheet1Exists] = useState(false);
-  const [numAccounts, setNumAccounts] = useState(1);
-  const [accounts, setAccounts] = useState<AccountEntry[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [sheet1Loading, setSheet1Loading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [addingConnection, setAddingConnection] = useState(false);
+  const [savingId, setSavingId] = useState<number | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const token = localStorage.getItem('token');
@@ -46,17 +44,12 @@ export default function ReportDetailPage({ reportId, user: _user, onBack }: Repo
     Authorization: `Bearer ${token}`,
   };
 
-  useEffect(() => {
-    loadReport();
-    loadSheet1();
-  }, [reportId]);
-
   const showMsg = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type });
     setTimeout(() => setMessage(null), 4000);
   };
 
-  const loadReport = async () => {
+  const loadReport = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/reports/${reportId}`, { headers });
       if (!res.ok) throw new Error();
@@ -66,102 +59,92 @@ export default function ReportDetailPage({ reportId, user: _user, onBack }: Repo
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportId]);
 
-  const loadSheet1 = async () => {
+  const loadSheet1 = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/reports/${reportId}/sheet1`, { headers });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setSheet1Exists(data.exists);
-      if (data.exists) {
-        setNumAccounts(data.sheet.num_accounts);
-        setAccounts(data.accounts);
-      }
+      setConnections(data.accounts || []);
     } catch {
       showMsg('Failed to load Sheet 1', 'error');
     } finally {
       setSheet1Loading(false);
     }
-  };
+  }, [reportId]);
 
-  const initSheet1 = async (e: FormEvent) => {
-    e.preventDefault();
-    if (numAccounts < 1) return;
-    setSaving(true);
+  useEffect(() => {
+    loadReport();
+    loadSheet1();
+  }, [loadReport, loadSheet1]);
+
+  // ---- Add connection ----
+  const handleAddConnection = async () => {
+    setAddingConnection(true);
     try {
-      const res = await fetch(`${API_URL}/api/reports/${reportId}/sheet1`, {
+      const res = await fetch(`${API_URL}/api/reports/${reportId}/sheet1/connections`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ num_accounts: numAccounts }),
+        body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error((await res.json()).detail);
-      // Reload to get the empty account slots
+      // Reload to get fresh data
       await loadSheet1();
-      setSheet1Exists(true);
-      showMsg('Sheet 1 initialized', 'success');
+      showMsg('Connection added', 'success');
     } catch (err: any) {
-      showMsg(err.message || 'Failed to initialize', 'error');
+      showMsg(err.message || 'Failed to add connection', 'error');
     } finally {
-      setSaving(false);
+      setAddingConnection(false);
     }
   };
 
-  const updateAccount = (index: number, field: keyof AccountEntry, value: any) => {
-    setAccounts(prev => {
+  // ---- Save individual connection ----
+  const handleSaveConnection = async (conn: Connection) => {
+    setSavingId(conn.id);
+    try {
+      const res = await fetch(`${API_URL}/api/reports/${reportId}/sheet1/connections/${conn.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          billing_account_no: conn.billing_account_no || null,
+          sanctioned_cd_kva: conn.sanctioned_cd_kva,
+          is_diesel_generator: conn.is_diesel_generator,
+          is_solar: conn.is_solar,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail);
+      showMsg(`Connection ${conn.account_number} saved`, 'success');
+    } catch (err: any) {
+      showMsg(err.message || 'Failed to save', 'error');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // ---- Delete connection ----
+  const handleDeleteConnection = async (conn: Connection) => {
+    if (!window.confirm(`Delete Connection ${conn.account_number}?`)) return;
+    try {
+      const res = await fetch(`${API_URL}/api/reports/${reportId}/sheet1/connections/${conn.id}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (!res.ok) throw new Error('Failed to delete');
+      await loadSheet1();
+      showMsg(`Connection ${conn.account_number} deleted`, 'success');
+    } catch (err: any) {
+      showMsg(err.message || 'Failed to delete', 'error');
+    }
+  };
+
+  // ---- Update local state ----
+  const updateConn = (index: number, field: keyof Connection, value: any) => {
+    setConnections(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
       return updated;
     });
-  };
-
-  const handleNumAccountsChange = (newCount: number) => {
-    if (newCount < 1) return;
-    setNumAccounts(newCount);
-
-    if (newCount > accounts.length) {
-      // Add new empty slots
-      const newAccounts = [...accounts];
-      for (let i = accounts.length + 1; i <= newCount; i++) {
-        newAccounts.push({
-          account_number: i,
-          entry_date: null,
-          is_solar: false,
-          billing_account_no: null,
-          sanctioned_cd_kva: null,
-        });
-      }
-      setAccounts(newAccounts);
-    } else if (newCount < accounts.length) {
-      // Trim
-      setAccounts(accounts.slice(0, newCount));
-    }
-  };
-
-  const saveSheet1 = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch(`${API_URL}/api/reports/${reportId}/sheet1`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({
-          num_accounts: numAccounts,
-          accounts: accounts.map((a, i) => ({
-            account_number: i + 1,
-            entry_date: a.entry_date || null,
-            is_solar: a.is_solar,
-            billing_account_no: a.billing_account_no || null,
-            sanctioned_cd_kva: a.sanctioned_cd_kva,
-          })),
-        }),
-      });
-      if (!res.ok) throw new Error((await res.json()).detail);
-      showMsg('Sheet 1 saved successfully', 'success');
-    } catch (err: any) {
-      showMsg(err.message || 'Failed to save', 'error');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -202,102 +185,93 @@ export default function ReportDetailPage({ reportId, user: _user, onBack }: Repo
         <section className="sheet-section">
           <div className="sheet-header">
             <h2>Sheet 1 — Energy Consumption Data (Utility Supply, Last 1 Year)</h2>
+            <button
+              className="btn-add-conn"
+              onClick={handleAddConnection}
+              disabled={addingConnection}
+            >
+              {addingConnection ? 'Adding...' : '+ Add Connection'}
+            </button>
           </div>
 
           {sheet1Loading ? (
-            <p className="sheet-loading">Loading Sheet 1...</p>
-          ) : !sheet1Exists ? (
-            /* Init form: ask for number of accounts */
-            <div className="sheet-init">
-              <p className="sheet-init-desc">
-                How many electrical connections does this facility have?
-              </p>
-              <form className="sheet-init-form" onSubmit={initSheet1}>
-                <div className="form-group">
-                  <label>Number of Electrical Connections</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={numAccounts}
-                    onChange={e => setNumAccounts(parseInt(e.target.value) || 1)}
-                  />
-                </div>
-                <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving ? 'Initializing...' : 'Initialize Sheet 1'}
-                </button>
-              </form>
+            <p className="sheet-loading">Loading connections...</p>
+          ) : connections.length === 0 ? (
+            <div className="sheet-empty">
+              <p>No electrical connections added yet.</p>
+              <p className="sheet-empty-sub">Click "+ Add Connection" to start recording data.</p>
             </div>
           ) : (
-            /* Account data entry */
-            <div className="sheet-data">
-              <div className="sheet-controls">
-                <div className="form-group form-inline">
-                  <label>Number of Connections:</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={numAccounts}
-                    onChange={e => handleNumAccountsChange(parseInt(e.target.value) || 1)}
-                    className="input-sm"
-                  />
-                </div>
-                <button className="btn-primary" onClick={saveSheet1} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Sheet 1'}
-                </button>
-              </div>
-
-              <div className="accounts-list">
-                {accounts.map((acc, idx) => (
-                  <div className="account-card" key={idx}>
-                    <div className="account-header">
-                      <h3>Connection {acc.account_number}</h3>
-                      {acc.is_solar && <span className="solar-badge">☀ Solar</span>}
+            <div className="connections-list">
+              {connections.map((conn, idx) => (
+                <div className="connection-card" key={conn.id}>
+                  <div className="conn-header">
+                    <div className="conn-title">
+                      <h3>Connection {conn.account_number}</h3>
+                      <span className="conn-date">
+                        Recorded: {conn.entry_date ? new Date(conn.entry_date).toLocaleDateString() : '—'}
+                      </span>
+                      {conn.is_diesel_generator && <span className="dg-badge">⚡ DG</span>}
+                      {conn.is_solar && <span className="solar-badge">☀ Solar</span>}
                     </div>
-                    <div className="account-fields">
-                      <div className="form-group">
-                        <label>Date</label>
-                        <input
-                          type="date"
-                          value={acc.entry_date || ''}
-                          onChange={e => updateAccount(idx, 'entry_date', e.target.value || null)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Solar Connection?</label>
-                        <select
-                          value={acc.is_solar ? 'yes' : 'no'}
-                          onChange={e => updateAccount(idx, 'is_solar', e.target.value === 'yes')}
-                        >
-                          <option value="no">No</option>
-                          <option value="yes">Yes</option>
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label>Utility Billing Account No.</label>
-                        <input
-                          type="text"
-                          value={acc.billing_account_no || ''}
-                          onChange={e => updateAccount(idx, 'billing_account_no', e.target.value || null)}
-                          placeholder="e.g. ACC-001234"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Sanctioned Contract Demand (kVA)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={acc.sanctioned_cd_kva ?? ''}
-                          onChange={e => updateAccount(idx, 'sanctioned_cd_kva', e.target.value ? parseFloat(e.target.value) : null)}
-                          placeholder="e.g. 500"
-                        />
-                      </div>
+                    <div className="conn-actions">
+                      <button
+                        className="btn-save-conn"
+                        onClick={() => handleSaveConnection(conn)}
+                        disabled={savingId === conn.id}
+                      >
+                        {savingId === conn.id ? 'Saving...' : 'Save'}
+                      </button>
+                      <button className="btn-delete-conn" onClick={() => handleDeleteConnection(conn)}>
+                        Delete
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  <div className="conn-fields">
+                    <div className="form-group">
+                      <label>Utility Billing Account No.</label>
+                      <input
+                        type="text"
+                        value={conn.billing_account_no || ''}
+                        onChange={e => updateConn(idx, 'billing_account_no', e.target.value || null)}
+                        placeholder="e.g. ACC-001234"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Sanctioned Contract Demand (kVA)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={conn.sanctioned_cd_kva ?? ''}
+                        onChange={e => updateConn(idx, 'sanctioned_cd_kva', e.target.value ? parseFloat(e.target.value) : null)}
+                        placeholder="e.g. 500"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Diesel Generator?</label>
+                      <select
+                        value={conn.is_diesel_generator ? 'yes' : 'no'}
+                        onChange={e => updateConn(idx, 'is_diesel_generator', e.target.value === 'yes')}
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Solar Connection?</label>
+                      <select
+                        value={conn.is_solar ? 'yes' : 'no'}
+                        onChange={e => updateConn(idx, 'is_solar', e.target.value === 'yes')}
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>
