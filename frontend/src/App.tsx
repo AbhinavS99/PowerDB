@@ -3,6 +3,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import UserManagementPage from './pages/UserManagementPage'
 import ReportDetailPage from './pages/ReportDetailPage'
+import ConnectionDetailPage from './pages/ConnectionDetailPage'
 import './index.css'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
@@ -22,63 +23,57 @@ function App() {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [page, setPage] = useState<string>('dashboard')
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null)
+  const [selectedConnId, setSelectedConnId] = useState<number | null>(null)
 
   useEffect(() => {
     if (token) {
       fetch(`${API_URL}/api/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-        .then(res => {
-          if (!res.ok) throw new Error('Invalid token')
-          return res.json()
-        })
+        .then(res => { if (!res.ok) throw new Error(); return res.json() })
         .then(data => setUser(data))
-        .catch(() => {
-          localStorage.removeItem('token')
-          setToken(null)
-          setUser(null)
-        })
+        .catch(() => { localStorage.removeItem('token'); setToken(null); setUser(null) })
     }
   }, [token])
 
   const handleLogin = (accessToken: string, userData: UserInfo) => {
-    localStorage.setItem('token', accessToken)
-    setToken(accessToken)
-    setUser(userData)
-    setPage('dashboard')
+    localStorage.setItem('token', accessToken); setToken(accessToken); setUser(userData); setPage('dashboard')
   }
-
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    setToken(null)
-    setUser(null)
-    setPage('dashboard')
+    localStorage.removeItem('token'); setToken(null); setUser(null); setPage('dashboard')
   }
 
-  if (!token || !user) {
-    return <LoginPage onLogin={handleLogin} />
-  }
+  if (!token || !user) return <LoginPage onLogin={handleLogin} />
 
-  if (page === 'users' && user.role === 'super') {
+  if (page === 'users' && user.role === 'super')
     return <UserManagementPage onBack={() => setPage('dashboard')} />
-  }
 
-  if (page === 'report' && selectedReportId) {
+  if (page === 'connection' && selectedReportId && selectedConnId)
+    return (
+      <ConnectionDetailPage
+        reportId={selectedReportId}
+        connectionId={selectedConnId}
+        user={user}
+        onBack={() => { setSelectedConnId(null); setPage('report') }}
+      />
+    )
+
+  if (page === 'report' && selectedReportId)
     return (
       <ReportDetailPage
         reportId={selectedReportId}
         user={user}
-        onBack={() => { setPage('dashboard'); setSelectedReportId(null); }}
+        onBack={() => { setPage('dashboard'); setSelectedReportId(null) }}
+        onOpenConnection={(connId) => { setSelectedConnId(connId); setPage('connection') }}
       />
     )
-  }
 
   return (
     <DashboardPage
       user={user}
       onLogout={handleLogout}
       onManageUsers={user.role === 'super' ? () => setPage('users') : undefined}
-      onOpenReport={(id) => { setSelectedReportId(id); setPage('report'); }}
+      onOpenReport={(id) => { setSelectedReportId(id); setPage('report') }}
     />
   )
 }
