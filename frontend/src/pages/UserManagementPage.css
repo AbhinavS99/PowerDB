@@ -139,6 +139,15 @@
   transition: all 0.2s;
 }
 
+.btn-edit {
+  border-color: #52c41a;
+  color: #52c41a;
+}
+
+.btn-edit:hover {
+  background: #f6ffed;
+}
+
 .btn-password {
   border-color: #1677ff;
   color: #1677ff;

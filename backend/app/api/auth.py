@@ -24,6 +24,13 @@ class PasswordUpdateRequest(BaseModel):
     new_password: str
 
 
+class UserUpdateRequest(BaseModel):
+    full_name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+    role: str | None = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -214,5 +221,48 @@ def get_me(user: dict = Depends(get_current_user)):
             "phone": row.phone,
             "role": row.role,
         }
+    finally:
+        conn.close()
+
+
+@router.put("/users/{user_id}")
+def update_user(user_id: int, req: UserUpdateRequest, _: dict = Depends(require_super)):
+    """Update a user's details. Only super users can do this."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM users WHERE id = ?", user_id)
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+
+        updates = []
+        params = []
+        if req.full_name is not None:
+            updates.append("full_name = ?")
+            params.append(req.full_name)
+        if req.email is not None:
+            # Check email not taken by another user
+            cursor.execute("SELECT id FROM users WHERE email = ? AND id != ?", str(req.email), user_id)
+            if cursor.fetchone():
+                raise HTTPException(status_code=400, detail="Email already in use")
+            updates.append("email = ?")
+            params.append(str(req.email))
+        if req.phone is not None:
+            updates.append("phone = ?")
+            params.append(req.phone)
+        if req.role is not None:
+            if req.role not in ("auditor", "admin"):
+                raise HTTPException(status_code=400, detail="Role must be 'auditor' or 'admin'")
+            updates.append("role = ?")
+            params.append(req.role)
+
+        if not updates:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        updates.append("updated_at = GETUTCDATE()")
+        params.append(user_id)
+        cursor.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", *params)
+        conn.commit()
+        return {"message": "User updated"}
     finally:
         conn.close()

@@ -21,6 +21,7 @@ export default function UserManagementPage({ onBack }: UserManagementPageProps) 
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [passwordModal, setPasswordModal] = useState<{ userId: number; userName: string } | null>(null);
+  const [editModal, setEditModal] = useState<User | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const token = localStorage.getItem('token');
@@ -145,6 +146,12 @@ export default function UserManagementPage({ onBack }: UserManagementPageProps) 
                   <td>{new Date(u.created_at).toLocaleDateString()}</td>
                   <td className="actions-cell">
                     <button
+                      className="btn-action btn-edit"
+                      onClick={() => setEditModal(u)}
+                    >
+                      Edit
+                    </button>
+                    <button
                       className="btn-action btn-password"
                       onClick={() => setPasswordModal({ userId: u.id, userName: u.full_name })}
                     >
@@ -168,6 +175,20 @@ export default function UserManagementPage({ onBack }: UserManagementPageProps) 
             userName={passwordModal.userName}
             onSubmit={(pwd) => handlePasswordUpdate(passwordModal.userId, pwd)}
             onCancel={() => setPasswordModal(null)}
+          />
+        )}
+
+        {editModal && (
+          <EditUserModal
+            user={editModal}
+            headers={headers}
+            onSuccess={(updated) => {
+              setUsers(prev => prev.map(u => u.id === updated.id ? { ...u, ...updated } : u));
+              setEditModal(null);
+              showMessage('User updated', 'success');
+            }}
+            onCancel={() => setEditModal(null)}
+            onError={(msg) => showMessage(msg, 'error')}
           />
         )}
       </main>
@@ -361,6 +382,97 @@ function PasswordModal({
           <div className="modal-actions">
             <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
             <button type="submit" className="btn-primary">Update Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+// ---------- Edit User Modal ----------
+
+function EditUserModal({
+  user,
+  headers,
+  onSuccess,
+  onCancel,
+  onError,
+}: {
+  user: User;
+  headers: Record<string, string>;
+  onSuccess: (updated: { id: number; full_name: string; email: string; phone: string | null; role: string }) => void;
+  onCancel: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [fullName, setFullName] = useState(user.full_name);
+  const [email, setEmail] = useState(user.email);
+  const [phone, setPhone] = useState(user.phone || '');
+  const [role, setRole] = useState(user.role);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!fullName.trim()) { setError('Name is required'); return; }
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_URL}/api/auth/users/${user.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          full_name: fullName.trim(),
+          email: email.trim(),
+          phone: phone.trim() || null,
+          role: user.role === 'super' ? undefined : role,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Failed to update user');
+      }
+      onSuccess({ id: user.id, full_name: fullName.trim(), email: email.trim(), phone: phone.trim() || null, role: user.role === 'super' ? user.role : role });
+    } catch (err: any) {
+      setError(err.message);
+      onError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <h3>Edit User — {user.full_name}</h3>
+        <form onSubmit={handleSubmit}>
+          {error && <div className="error-msg">{error}</div>}
+          <div className="form-group">
+            <label>Full Name</label>
+            <input value={fullName} onChange={e => setFullName(e.target.value)} required />
+          </div>
+          <div className="form-group">
+            <label>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+          </div>
+          <div className="form-group">
+            <label>Phone</label>
+            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 1234567890" />
+          </div>
+          {user.role !== 'super' && (
+            <div className="form-group">
+              <label>Role</label>
+              <select value={role} onChange={e => setRole(e.target.value)}>
+                <option value="auditor">Auditor</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          )}
+          <div className="modal-actions">
+            <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
         </form>
       </div>
