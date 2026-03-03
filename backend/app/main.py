@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 
 from app.api.auth import router as auth_router
+from app.api.reports import router as reports_router
 
 app = FastAPI(
     title="PowerDB API",
@@ -24,6 +25,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(reports_router, prefix="/api/reports", tags=["Reports"])
 
 
 @app.get("/api/health")

@@ -8,14 +8,21 @@ const API_URL = import.meta.env.VITE_API_URL || ''
 
 export { API_URL }
 
+export interface UserInfo {
+  id: number;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  role: string;
+}
+
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<UserInfo | null>(null)
   const [page, setPage] = useState<'dashboard' | 'users'>('dashboard')
 
   useEffect(() => {
     if (token) {
-      // Validate token by fetching current user
       fetch(`${API_URL}/api/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -32,7 +39,7 @@ function App() {
     }
   }, [token])
 
-  const handleLogin = (accessToken: string, userData: any) => {
+  const handleLogin = (accessToken: string, userData: UserInfo) => {
     localStorage.setItem('token', accessToken)
     setToken(accessToken)
     setUser(userData)
