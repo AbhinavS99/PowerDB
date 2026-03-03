@@ -9,7 +9,7 @@ BEGIN
         email       NVARCHAR(255)   NOT NULL UNIQUE,
         phone       NVARCHAR(20)    NULL,
         role        NVARCHAR(20)    NOT NULL DEFAULT 'auditor'
-                    CHECK (role IN ('auditor', 'admin')),
+                    CHECK (role IN ('auditor', 'admin', 'super')),
         hashed_password NVARCHAR(255) NOT NULL,
         is_active   BIT             NOT NULL DEFAULT 1,
         created_at  DATETIME2       NOT NULL DEFAULT GETUTCDATE(),

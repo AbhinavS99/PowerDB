@@ -41,10 +41,10 @@ def register(req: RegisterRequest):
             )
 
         # Validate role
-        if req.role not in ("auditor", "admin"):
+        if req.role not in ("auditor", "admin", "super"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Role must be 'auditor' or 'admin'",
+                detail="Role must be 'auditor', 'admin', or 'super'",
             )
 
         hashed = hash_password(req.password)
