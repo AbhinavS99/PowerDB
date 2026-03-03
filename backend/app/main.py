@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import settings
-from app.api import auth, reports
+import os
 
 app = FastAPI(
     title="PowerDB API",
@@ -11,19 +10,23 @@ app = FastAPI(
 )
 
 # CORS — allow frontend origin
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
+    allow_origins=[FRONTEND_URL, "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
-
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "service": "powerdb-backend", "version": "0.1.0"}
+
+
+@app.get("/api/hello")
+async def hello():
+    return {"message": "Hello from PowerDB API!"}
+

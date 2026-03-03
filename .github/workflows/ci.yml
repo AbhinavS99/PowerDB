@@ -1,34 +1,59 @@
-name: PowerDB CI
+name: PowerDB CI/CD
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+
+env:
+  BACKEND_IMAGE: powerdb-backend
+  FRONTEND_IMAGE: powerdb-frontend
+  RESOURCE_GROUP: rg-powerdb
+  BACKEND_APP: powerdb-backend
+  FRONTEND_APP: powerdb-frontend
+  BACKEND_URL: https://powerdb-backend.agreeableground-dc5323af.centralindia.azurecontainerapps.io
 
 jobs:
-  backend:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - run: python -m py_compile app/main.py
 
-  frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # ---- Login to Azure & ACR ----
+      - name: Azure Login
+        uses: azure/login@v2
         with:
-          node-version: "20"
-      - run: npm ci
-      - run: npm run build
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+
+      # ---- Build & Push Backend ----
+      - name: Build and push backend image
+        run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }} -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:latest ./backend
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:latest
+
+      # ---- Build & Push Frontend ----
+      - name: Build and push frontend image
+        run: |
+          docker build --build-arg VITE_API_URL=${{ env.BACKEND_URL }} -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE }}:latest ./frontend
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE }}:latest
+
+      # ---- Deploy Backend ----
+      - name: Deploy backend to Container Apps
+        run: |
+          az containerapp update \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
+            --set-env-vars "FRONTEND_URL=https://powerdb-frontend.agreeableground-dc5323af.centralindia.azurecontainerapps.io"
+
+      # ---- Deploy Frontend ----
+      - name: Deploy frontend to Container Apps
+        run: |
+          az containerapp update \
+            --name ${{ env.FRONTEND_APP }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}

@@ -84,3 +84,18 @@ PowerDB/
 │   └── workflows/         # CI/CD pipelines
 └── README.md
 ```
+
+## Azure Resources
+
+| Resource | Name | Details |
+|---|---|---|
+| Resource Group | `rg-powerdb` | Central India |
+| SQL Server | `powerdb-sqlserver.database.windows.net` | Admin: `powerdbadmin` |
+| SQL Database | `powerdb` | Basic tier, 5 DTU, 2GB |
+| Container Registry | `powerdbacr.azurecr.io` | Basic SKU, admin enabled |
+| Container Apps Env | `powerdb-env` | Consumption workload profile |
+| Backend App | `powerdb-backend` | https://powerdb-backend.agreeableground-dc5323af.centralindia.azurecontainerapps.io |
+| Frontend App | `powerdb-frontend` | https://powerdb-frontend.agreeableground-dc5323af.centralindia.azurecontainerapps.io |
+
+### GitHub Repo
+- https://github.com/AbhinavS99/PowerDB
