@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../App';
 import type { UserInfo } from '../App';
 import './ReportDetailPage.css';
