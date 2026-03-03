@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import UserManagementPage from './pages/UserManagementPage'
+import ReportDetailPage from './pages/ReportDetailPage'
 import './index.css'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
@@ -19,7 +20,8 @@ export interface UserInfo {
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
   const [user, setUser] = useState<UserInfo | null>(null)
-  const [page, setPage] = useState<'dashboard' | 'users'>('dashboard')
+  const [page, setPage] = useState<string>('dashboard')
+  const [selectedReportId, setSelectedReportId] = useState<number | null>(null)
 
   useEffect(() => {
     if (token) {
@@ -61,11 +63,22 @@ function App() {
     return <UserManagementPage onBack={() => setPage('dashboard')} />
   }
 
+  if (page === 'report' && selectedReportId) {
+    return (
+      <ReportDetailPage
+        reportId={selectedReportId}
+        user={user}
+        onBack={() => { setPage('dashboard'); setSelectedReportId(null); }}
+      />
+    )
+  }
+
   return (
     <DashboardPage
       user={user}
       onLogout={handleLogout}
       onManageUsers={user.role === 'super' ? () => setPage('users') : undefined}
+      onOpenReport={(id) => { setSelectedReportId(id); setPage('report'); }}
     />
   )
 }

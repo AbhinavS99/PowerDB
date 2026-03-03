@@ -232,7 +232,7 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   border: 1px solid #f0f0f0;
   transition: box-shadow 0.2s, transform 0.15s;
-  cursor: default;
+  cursor: pointer;
 }
 
 .report-card:hover {

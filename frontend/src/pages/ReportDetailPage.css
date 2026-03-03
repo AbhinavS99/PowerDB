@@ -1,0 +1,278 @@
+/* ===== Report Detail Page ===== */
+.report-detail {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.rd-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: #888;
+  font-size: 1rem;
+}
+
+/* Header */
+.rd-header {
+  padding: 1rem 2rem;
+  background: white;
+  border-bottom: 1px solid #e8e8e8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.btn-back {
+  background: none;
+  border: none;
+  color: #1677ff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+  margin-bottom: 0.4rem;
+}
+
+.btn-back:hover {
+  text-decoration: underline;
+}
+
+.rd-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.rd-title-row h1 {
+  font-size: 1.3rem;
+  color: #222;
+  margin: 0;
+}
+
+.rd-uid {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #999;
+  background: #f5f5f5;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.rd-status {
+  padding: 0.15rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.rd-meta {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #666;
+  flex-wrap: wrap;
+}
+
+.rd-meta strong {
+  color: #333;
+}
+
+/* Main */
+.rd-main {
+  padding: 1.5rem 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.rd-message {
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.rd-message-success {
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  color: #389e0d;
+}
+
+.rd-message-error {
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  color: #cf1322;
+}
+
+/* Sheet Section */
+.sheet-section {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.sheet-header {
+  padding: 1rem 1.5rem;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.sheet-header h2 {
+  font-size: 1rem;
+  color: #333;
+  margin: 0;
+}
+
+.sheet-loading {
+  padding: 2rem;
+  text-align: center;
+  color: #888;
+}
+
+/* Init Form */
+.sheet-init {
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.sheet-init-desc {
+  color: #555;
+  margin-bottom: 1.25rem;
+  font-size: 0.95rem;
+}
+
+.sheet-init-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.sheet-init-form .form-group {
+  text-align: left;
+}
+
+.sheet-init-form input {
+  width: 120px;
+}
+
+/* Sheet Data */
+.sheet-data {
+  padding: 1.25rem 1.5rem;
+}
+
+.sheet-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.form-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-inline label {
+  margin-bottom: 0 !important;
+  white-space: nowrap;
+}
+
+.input-sm {
+  width: 80px !important;
+}
+
+/* Account Cards */
+.accounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.account-card {
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  transition: border-color 0.2s;
+}
+
+.account-card:hover {
+  border-color: #d0d0d0;
+}
+
+.account-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.account-header h3 {
+  font-size: 0.95rem;
+  color: #333;
+  margin: 0;
+}
+
+.solar-badge {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  background: #fffbe6;
+  color: #d48806;
+  font-weight: 600;
+}
+
+.account-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+/* Form Elements */
+.form-group {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-weight: 500;
+  color: #555;
+  font-size: 0.82rem;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #1677ff;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+}
+
+/* Buttons */
+.btn-primary {
+  padding: 0.45rem 1rem;
+  background: #1677ff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover { background: #4096ff; }
+.btn-primary:disabled { background: #91caff; cursor: not-allowed; }

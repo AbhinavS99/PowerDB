@@ -5,6 +5,7 @@ import os
 
 from app.api.auth import router as auth_router
 from app.api.reports import router as reports_router
+from app.api.sheet1 import router as sheet1_router
 
 app = FastAPI(
     title="PowerDB API",
@@ -26,6 +27,7 @@ app.add_middleware(
 # Routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(reports_router, prefix="/api/reports", tags=["Reports"])
+app.include_router(sheet1_router, prefix="/api/reports", tags=["Sheet 1 - Energy Consumption"])
 
 
 @app.get("/api/health")

@@ -19,9 +19,10 @@ interface DashboardPageProps {
   user: UserInfo;
   onLogout: () => void;
   onManageUsers?: () => void;
+  onOpenReport?: (id: number) => void;
 }
 
-export default function DashboardPage({ user, onLogout, onManageUsers }: DashboardPageProps) {
+export default function DashboardPage({ user, onLogout, onManageUsers, onOpenReport }: DashboardPageProps) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewReport, setShowNewReport] = useState(false);
@@ -143,7 +144,7 @@ export default function DashboardPage({ user, onLogout, onManageUsers }: Dashboa
             {reports.map(r => {
               const sc = statusConfig[r.status] || statusConfig.not_started;
               return (
-                <div className="report-card" key={r.id}>
+                <div className="report-card" key={r.id} onClick={() => onOpenReport?.(r.id)}>
                   <div className="card-top">
                     <span className="card-uid">{r.report_uid}</span>
                     <span className="card-status" style={{ color: sc.color, background: sc.bg }}>
