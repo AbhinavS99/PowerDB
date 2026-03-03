@@ -1,22 +1,16 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.orm import DeclarativeBase
-
+import pyodbc
 from app.core.config import settings
 
-engine = create_async_engine(settings.DATABASE_URL, echo=False)
-async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-
-class Base(DeclarativeBase):
-    pass
-
-
-async def get_db() -> AsyncSession:
-    """FastAPI dependency that yields a database session."""
-    async with async_session() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+def get_connection() -> pyodbc.Connection:
+    """Create a new connection to Azure SQL Database."""
+    conn_str = (
+        f"DRIVER={{{settings.DB_DRIVER}}};"
+        f"SERVER={settings.DB_SERVER};"
+        f"DATABASE={settings.DB_NAME};"
+        f"UID={settings.DB_USER};"
+        f"PWD={settings.DB_PASSWORD};"
+        f"Encrypt=yes;"
+        f"TrustServerCertificate=no;"
+    )
+    return pyodbc.connect(conn_str)

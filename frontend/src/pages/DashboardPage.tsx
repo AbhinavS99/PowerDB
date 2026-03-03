@@ -1,108 +1,39 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { reportService } from '@/services/reportService';
-import type { Report } from '@/types';
 import './DashboardPage.css';
 
-export default function DashboardPage() {
-  const [reports, setReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { logout } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    loadReports();
-  }, []);
-
-  const loadReports = async () => {
-    try {
-      const data = await reportService.list();
-      setReports(data);
-    } catch (err) {
-      console.error('Failed to load reports', err);
-    } finally {
-      setLoading(false);
-    }
+interface DashboardPageProps {
+  user: {
+    id: number;
+    full_name: string;
+    email: string;
+    phone: string | null;
+    role: string;
   };
+  onLogout: () => void;
+}
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this report?')) return;
-    try {
-      await reportService.delete(id);
-      setReports((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) {
-      console.error('Failed to delete report', err);
-    }
-  };
-
-  const statusLabel = (status: string) => {
-    const map: Record<string, string> = {
-      draft: 'Draft',
-      in_progress: 'In Progress',
-      completed: 'Completed',
-    };
-    return map[status] || status;
-  };
-
+export default function DashboardPage({ user, onLogout }: DashboardPageProps) {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
         <h1>PowerDB</h1>
         <div className="header-actions">
-          <button className="btn-primary" onClick={() => navigate('/reports/new')}>
-            + Generate New Report
-          </button>
-          <button className="btn-secondary" onClick={logout}>
+          <span className="user-info">{user.full_name} ({user.role})</span>
+          <button className="btn-secondary" onClick={onLogout}>
             Sign Out
           </button>
         </div>
       </header>
 
       <main className="dashboard-content">
-        <h2>Your Reports</h2>
-
-        {loading ? (
-          <p className="loading">Loading reports...</p>
-        ) : reports.length === 0 ? (
-          <div className="empty-state">
-            <p>No reports yet. Click "Generate New Report" to get started.</p>
-          </div>
-        ) : (
-          <table className="reports-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Last Updated</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reports.map((report) => (
-                <tr key={report.id}>
-                  <td>{report.title}</td>
-                  <td>
-                    <span className={`status-badge status-${report.status}`}>
-                      {statusLabel(report.status)}
-                    </span>
-                  </td>
-                  <td>{new Date(report.created_at).toLocaleDateString()}</td>
-                  <td>{new Date(report.updated_at).toLocaleDateString()}</td>
-                  <td>
-                    <button
-                      className="btn-link"
-                      onClick={() => handleDelete(report.id)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <h2>Welcome, {user.full_name}!</h2>
+        <div className="user-card">
+          <p><strong>Email:</strong> {user.email}</p>
+          <p><strong>Phone:</strong> {user.phone || '—'}</p>
+          <p><strong>Role:</strong> {user.role}</p>
+        </div>
+        <p className="placeholder-text">
+          Dashboard content coming soon — reports, data logging, and more.
+        </p>
       </main>
     </div>
   );

@@ -48,7 +48,13 @@ jobs:
             --name ${{ env.BACKEND_APP }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
-            --set-env-vars "FRONTEND_URL=https://powerdb-frontend.agreeableground-dc5323af.centralindia.azurecontainerapps.io"
+            --set-env-vars \
+              "FRONTEND_URL=https://powerdb-frontend.agreeableground-dc5323af.centralindia.azurecontainerapps.io" \
+              "DB_SERVER=${{ secrets.DB_SERVER }}" \
+              "DB_NAME=${{ secrets.DB_NAME }}" \
+              "DB_USER=${{ secrets.DB_USER }}" \
+              "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" \
+              "SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}"
 
       # ---- Deploy Frontend ----
       - name: Deploy frontend to Container Apps

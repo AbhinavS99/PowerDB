@@ -1,34 +1,52 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
+import LoginPage from './pages/LoginPage'
+import DashboardPage from './pages/DashboardPage'
 import './index.css'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
+export { API_URL }
+
 function App() {
-  const [message, setMessage] = useState('Loading...')
-  const [health, setHealth] = useState('checking...')
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    fetch(`${API_URL}/api/hello`)
-      .then(res => res.json())
-      .then(data => setMessage(data.message))
-      .catch(() => setMessage('Failed to connect to backend'))
+    if (token) {
+      // Validate token by fetching current user
+      fetch(`${API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('Invalid token')
+          return res.json()
+        })
+        .then(data => setUser(data))
+        .catch(() => {
+          localStorage.removeItem('token')
+          setToken(null)
+          setUser(null)
+        })
+    }
+  }, [token])
 
-    fetch(`${API_URL}/api/health`)
-      .then(res => res.json())
-      .then(data => setHealth(data.status))
-      .catch(() => setHealth('unreachable'))
-  }, [])
+  const handleLogin = (accessToken: string, userData: any) => {
+    localStorage.setItem('token', accessToken)
+    setToken(accessToken)
+    setUser(userData)
+  }
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <h1 style={{ color: '#1677ff', marginBottom: '1rem' }}>PowerDB</h1>
-      <p style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{message}</p>
-      <p style={{ color: '#888' }}>Backend status: <strong>{health}</strong></p>
-      <p style={{ color: '#aaa', marginTop: '2rem', fontSize: '0.85rem' }}>
-        API: {API_URL || '(proxied)'}
-      </p>
-    </div>
-  )
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    setToken(null)
+    setUser(null)
+  }
+
+  if (!token || !user) {
+    return <LoginPage onLogin={handleLogin} />
+  }
+
+  return <DashboardPage user={user} onLogout={handleLogout} />
 }
 
 export default App

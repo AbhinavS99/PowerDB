@@ -147,3 +147,33 @@
   background: #f6ffed;
   color: #52c41a;
 }
+
+.user-info {
+  display: flex;
+  align-items: center;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.user-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.5rem;
+}
+
+.user-card p {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.placeholder-text {
+  color: #888;
+  font-style: italic;
+  text-align: center;
+  padding: 2rem;
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  background: white;
+}
