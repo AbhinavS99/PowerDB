@@ -26,8 +26,18 @@ class TokenResponse(BaseModel):
     user: dict
 
 
+def require_super(user: dict = Depends(get_current_user)) -> dict:
+    """Dependency that ensures the current user has 'super' role."""
+    if user.get("role") != "super":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only super users can perform this action",
+        )
+    return user
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-def register(req: RegisterRequest):
+def register(req: RegisterRequest, _: dict = Depends(require_super)):
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -68,6 +78,50 @@ def register(req: RegisterRequest):
             "role": row.role,
             "created_at": str(row.created_at),
         }
+    finally:
+        conn.close()
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(user_id: int, current_user: dict = Depends(require_super)):
+    """Delete a user. Only super users can do this."""
+    if current_user["user_id"] == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete yourself",
+        )
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM users WHERE id = ?", user_id)
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+        cursor.execute("DELETE FROM users WHERE id = ?", user_id)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@router.get("/users")
+def list_users(_: dict = Depends(require_super)):
+    """List all users. Only super users can see this."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, full_name, email, phone, role, is_active, created_at FROM users ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        return [
+            {
+                "id": r.id,
+                "full_name": r.full_name,
+                "email": r.email,
+                "phone": r.phone,
+                "role": r.role,
+                "is_active": r.is_active,
+                "created_at": str(r.created_at),
+            }
+            for r in rows
+        ]
     finally:
         conn.close()
 
